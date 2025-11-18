@@ -2,16 +2,17 @@
 
 import { useState } from 'react'
 import { BottomNav } from '@/components/bottom-nav'
-import { ArrowLeft, MapPin, Star, Car, X, Check, AlertCircle } from 'lucide-react'
+import { ArrowLeft, MapPin, Star, Car, X, Check, AlertCircle, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
+import InteractiveMap from '@/components/interactive-map'
 
 const mockRequests = [
   {
     id: 1,
     name: 'Sarah Ahmed',
     rating: 4.9,
-    photo: '/rider-photo-1.png',
+    photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
     pickup: 'Building A, Campus',
     destination: 'City Center Mall',
     distance: '3.2 km',
@@ -21,7 +22,7 @@ const mockRequests = [
     id: 2,
     name: 'Mohammed Hassan',
     rating: 4.7,
-    photo: '/rider-photo-2.png',
+    photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
     pickup: 'Library Block',
     destination: 'Downtown',
     distance: '4.5 km',
@@ -31,7 +32,7 @@ const mockRequests = [
     id: 3,
     name: 'Fatima Ali',
     rating: 4.8,
-    photo: '/rider-photo-3.png',
+    photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
     pickup: 'Sports Complex',
     destination: 'Metro Station',
     distance: '2.8 km',
@@ -43,20 +44,25 @@ export default function DriverRequestsPage() {
   const router = useRouter()
   const [requests, setRequests] = useState(mockRequests)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [availableSeats, setAvailableSeats] = useState(4)
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3000)
   }
 
-  const handleAccept = (id: number, name: string) => {
-    console.log('[v0] Accepting request from:', name)
+  const handleAccept = (id: number, name: string, passengers: number) => {
+    if (passengers > availableSeats) {
+      showToast(`Not enough seats available. Only ${availableSeats} seats left.`, 'error')
+      return
+    }
+    
     setRequests(requests.filter(r => r.id !== id))
-    showToast(`Accepted ride request from ${name}`, 'success')
+    setAvailableSeats(prev => prev - passengers)
+    showToast(`Accepted ${name} (${passengers} seat${passengers > 1 ? 's' : ''})`, 'success')
   }
 
   const handleDecline = (id: number, name: string) => {
-    console.log('[v0] Declining request from:', name)
     setRequests(requests.filter(r => r.id !== id))
     showToast(`Declined ride request from ${name}`, 'error')
   }
@@ -64,12 +70,15 @@ export default function DriverRequestsPage() {
   return (
     <div className="min-h-screen bg-white pb-20">
       {/* Map Section */}
-      <div className="relative h-[35vh] bg-gray-200">
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-300 to-gray-100">
-          <div className="w-full h-full flex items-center justify-center">
-            <MapPin className="w-12 h-12 text-gray-400" />
-          </div>
-        </div>
+      <div className="relative h-[35vh]">
+        <InteractiveMap
+          pickupLocation={{
+            lat: 26.0667,
+            lng: 50.5577,
+            name: 'Your Location'
+          }}
+          showRoute={false}
+        />
         
         {/* Header */}
         <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between z-10">
@@ -95,12 +104,14 @@ export default function DriverRequestsPage() {
           </button>
         </div>
 
-        {/* Route Info */}
         <div className="absolute bottom-4 left-4 right-4">
-          <div className="bg-white px-3 py-2 rounded-lg shadow-md">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-gray-500" />
-              <span className="text-xs font-sans text-gray-600">Your Current Route</span>
+          <div className="bg-white px-4 py-3 rounded-2xl shadow-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-sans font-bold text-gray-700">Available Seats</span>
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-[#3A85BD]" />
+                <span className="text-lg font-sans font-bold text-[#3A85BD]">{availableSeats}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -150,10 +161,13 @@ export default function DriverRequestsPage() {
                   </div>
                 </div>
 
-                {/* Distance */}
+                {/* Distance & Seats */}
                 <div className="text-right">
                   <p className="text-sm font-sans font-bold text-[#3A85BD]">{request.distance}</p>
-                  <p className="text-xs font-sans text-gray-400">{request.passengers} {request.passengers === 1 ? 'seat' : 'seats'}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Users className="w-3 h-3 text-gray-400" />
+                    <p className="text-xs font-sans text-gray-600">{request.passengers} {request.passengers === 1 ? 'seat' : 'seats'}</p>
+                  </div>
                 </div>
               </div>
 
@@ -168,7 +182,7 @@ export default function DriverRequestsPage() {
                   Decline
                 </Button>
                 <Button
-                  onClick={() => handleAccept(request.id, request.name)}
+                  onClick={() => handleAccept(request.id, request.name, request.passengers)}
                   className="flex-1 h-10 rounded-full font-sans font-bold text-white"
                   style={{ background: 'linear-gradient(135deg, #3A85BD 0%, #9FB798 100%)' }}
                 >

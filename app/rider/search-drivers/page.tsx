@@ -2,10 +2,18 @@
 
 import { useState, useEffect } from 'react'
 import { BottomNav } from '@/components/bottom-nav'
-import { ArrowLeft, MapPin, Star, Car, Filter } from 'lucide-react'
+import { ArrowLeft, MapPin, Star, Car, Filter, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRouter, useSearchParams } from 'next/navigation'
 import InteractiveMap from '@/components/interactive-map'
+
+const carImages = [
+  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/car%20a-Gsvh6dNlQ3U6Oear293OKgqNsCmJi1.png',
+  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/car%20b-A58NbtcdkrKg6K2HbAgrdEPrApMKwx.png',
+  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/car%20c-L1yUGQ7Q9yITD18KkLZOntCvCOGX15.png',
+  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/car%20d-1yh99sPPt4QeqgAuvMkb3aZWXkuRyJ.jpeg',
+  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/car%20e-gZq18IupJqzelzYFUlXHw23pM8fNHX.png'
+]
 
 const mockDrivers = [
   {
@@ -14,8 +22,10 @@ const mockDrivers = [
     rating: 4.8,
     carModel: 'Toyota Camry',
     plateNumber: '123456',
-    photo: '/driver-profile.png',
-    seats: 3,
+    photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
+    carPhoto: carImages[0],
+    totalSeats: 4,
+    availableSeats: 3,
     price: 5.00,
     distance: '2.3 km',
     estimatedTime: '8 min',
@@ -28,8 +38,10 @@ const mockDrivers = [
     rating: 4.9,
     carModel: 'Honda Accord',
     plateNumber: '789012',
-    photo: '/driver-profile.png',
-    seats: 2,
+    photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
+    carPhoto: carImages[1],
+    totalSeats: 4,
+    availableSeats: 2,
     price: 4.50,
     distance: '3.1 km',
     estimatedTime: '12 min',
@@ -42,8 +54,10 @@ const mockDrivers = [
     rating: 4.7,
     carModel: 'Nissan Altima',
     plateNumber: '345678',
-    photo: '/driver-profile.png',
-    seats: 4,
+    photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
+    carPhoto: carImages[2],
+    totalSeats: 5,
+    availableSeats: 4,
     price: 6.00,
     distance: '1.8 km',
     estimatedTime: '5 min',
@@ -56,8 +70,10 @@ const mockDrivers = [
     rating: 5.0,
     carModel: 'Hyundai Sonata',
     plateNumber: '901234',
-    photo: '/driver-profile.png',
-    seats: 3,
+    photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
+    carPhoto: carImages[3],
+    totalSeats: 4,
+    availableSeats: 1,
     price: 5.50,
     distance: '2.7 km',
     estimatedTime: '10 min',
@@ -74,7 +90,6 @@ export default function SearchDriversPage() {
   
   const pickup = searchParams.get('from') || 'Unknown'
   const destination = searchParams.get('to') || 'Unknown'
-  const passengers = searchParams.get('passengers') || '1'
 
   useEffect(() => {
     const sorted = [...mockDrivers].sort((a, b) => {
@@ -174,10 +189,10 @@ export default function SearchDriversPage() {
           {drivers.map((driver) => (
             <button
               key={driver.id}
-              onClick={() => router.push(`/rider/driver/${driver.id}?from=${encodeURIComponent(pickup)}&to=${encodeURIComponent(destination)}&passengers=${passengers}`)}
+              onClick={() => router.push(`/rider/driver/${driver.id}?from=${encodeURIComponent(pickup)}&to=${encodeURIComponent(destination)}`)}
               className="w-full bg-white border-2 border-gray-200 rounded-2xl p-4 hover:border-[#3A85BD] transition-all"
             >
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 mb-3">
                 {/* Driver Photo */}
                 <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0 overflow-hidden">
                   <img src={driver.photo || "/placeholder.svg"} alt={driver.name} className="w-full h-full object-cover" />
@@ -202,8 +217,20 @@ export default function SearchDriversPage() {
                 {/* Price */}
                 <div className="text-right">
                   <p className="text-lg font-sans font-bold text-[#3A85BD]">${driver.price.toFixed(2)}</p>
-                  <p className="text-xs font-sans text-gray-400">{driver.seats} seats</p>
+                  <div className="flex items-center gap-1 text-xs font-sans text-gray-500 mt-1">
+                    <Users className="w-3 h-3" />
+                    <span>{driver.availableSeats}/{driver.totalSeats} seats</span>
+                  </div>
                 </div>
+              </div>
+
+              {/* Car Image */}
+              <div className="flex justify-center py-2">
+                <img 
+                  src={driver.carPhoto || "/placeholder.svg"} 
+                  alt={driver.carModel}
+                  className="h-16 object-contain"
+                />
               </div>
             </button>
           ))}

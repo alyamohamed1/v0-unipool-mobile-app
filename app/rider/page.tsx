@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { BottomNav } from '@/components/bottom-nav'
-import { MapPin, Clock, Users, Search, X } from 'lucide-react'
+import { MapPin, Clock, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
@@ -15,10 +15,8 @@ export default function RiderHomePage() {
   const [destination, setDestination] = useState('')
   const [date, setDate] = useState('2025-04-01')
   const [time, setTime] = useState('09:41')
-  const [passengers, setPassengers] = useState(1)
   const [showLocationModal, setShowLocationModal] = useState(false)
   const [showDateTimeModal, setShowDateTimeModal] = useState(false)
-  const [showPassengerModal, setShowPassengerModal] = useState(false)
   const [locationType, setLocationType] = useState<'pickup' | 'destination'>('pickup')
 
   const handleSearch = () => {
@@ -27,7 +25,7 @@ export default function RiderHomePage() {
       return
     }
     
-    router.push(`/rider/search-drivers?from=${encodeURIComponent(pickupLocation)}&to=${encodeURIComponent(destination)}&date=${date}&time=${time}&passengers=${passengers}`)
+    router.push(`/rider/search-drivers?from=${encodeURIComponent(pickupLocation)}&to=${encodeURIComponent(destination)}&date=${date}&time=${time}`)
   }
 
   const formatDate = (dateStr: string) => {
@@ -108,17 +106,6 @@ export default function RiderHomePage() {
             <Clock className="w-6 h-6 text-gray-400" />
             <span className="flex-1 text-left font-sans text-gray-700">{formatDate(date)}</span>
             <span className="font-sans text-gray-700">{formatTime(time)}</span>
-          </button>
-
-          {/* Number of Passengers */}
-          <button 
-            onClick={() => setShowPassengerModal(true)}
-            className="w-full flex items-center gap-4 p-4 border-2 border-gray-300 rounded-full hover:bg-gray-50 transition-colors"
-          >
-            <Users className="w-6 h-6 text-gray-400" />
-            <span className="flex-1 text-left font-sans text-gray-700">
-              {passengers} {passengers === 1 ? 'Passenger' : 'Passengers'}
-            </span>
           </button>
 
           {/* Search Button */}
@@ -229,45 +216,20 @@ export default function RiderHomePage() {
         </div>
       )}
 
-      {/* Passenger Modal */}
-      {showPassengerModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
-          <div className="bg-white w-full rounded-t-3xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-sans font-bold text-gray-800">Number of Passengers</h3>
-              <button onClick={() => setShowPassengerModal(false)}>
-                <X className="w-6 h-6 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="flex items-center justify-center gap-8 py-8">
-              <button
-                onClick={() => setPassengers(Math.max(1, passengers - 1))}
-                className="w-12 h-12 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-2xl font-bold"
-              >
-                -
-              </button>
-              <span className="text-4xl font-sans font-bold text-gray-800">{passengers}</span>
-              <button
-                onClick={() => setPassengers(Math.min(6, passengers + 1))}
-                className="w-12 h-12 rounded-full bg-[#3A85BD] hover:bg-[#2a6590] flex items-center justify-center text-2xl font-bold text-white"
-              >
-                +
-              </button>
-            </div>
-
-            <Button
-              onClick={() => setShowPassengerModal(false)}
-              className="w-full h-12 mt-4 rounded-full font-sans font-bold text-white"
-              style={{ background: 'linear-gradient(135deg, #3A85BD 0%, #9FB798 100%)' }}
-            >
-              Confirm
-            </Button>
-          </div>
-        </div>
-      )}
-
       <BottomNav />
     </div>
   )
+}
+
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function formatTime(timeStr: string) {
+  const [hours, minutes] = timeStr.split(':')
+  const h = parseInt(hours)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  const displayHour = h % 12 || 12
+  return `${displayHour}:${minutes} ${ampm}`
 }

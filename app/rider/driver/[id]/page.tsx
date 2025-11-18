@@ -2,20 +2,28 @@
 
 import { useState } from 'react'
 import { BottomNav } from '@/components/bottom-nav'
-import { ArrowLeft, MapPin, Star, MessageCircle, Shield, Car, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, MapPin, Star, MessageCircle, Shield, Car, CheckCircle2, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRouter, useSearchParams } from 'next/navigation'
 import InteractiveMap from '@/components/interactive-map'
+
+const carImages = [
+  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/car%20a-Gsvh6dNlQ3U6Oear293OKgqNsCmJi1.png',
+  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/car%20b-A58NbtcdkrKg6K2HbAgrdEPrApMKwx.png',
+  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/car%20c-L1yUGQ7Q9yITD18KkLZOntCvCOGX15.png',
+  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/car%20d-1yh99sPPt4QeqgAuvMkb3aZWXkuRyJ.jpeg',
+  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/car%20e-gZq18IupJqzelzYFUlXHw23pM8fNHX.png'
+]
 
 export default function DriverDetailsPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isBooking, setIsBooking] = useState(false)
   const [isBooked, setIsBooked] = useState(false)
+  const [requestedSeats, setRequestedSeats] = useState(1)
   
   const pickup = searchParams.get('from') || 'American University of Bahrain'
   const destination = searchParams.get('to') || 'City Center Mall'
-  const passengers = searchParams.get('passengers') || '1'
 
   const driverData = {
     name: 'Ahmed Al-Khalifa',
@@ -25,19 +33,39 @@ export default function DriverDetailsPage({ params }: { params: { id: string } }
     carYear: '2022',
     plateNumber: '123456',
     price: 5.00,
-    seats: 3,
-    photo: '/driver-profile.png',
-    carPhoto: '/car-side-view.png'
+    totalSeats: 4,
+    availableSeats: 3,
+    photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
+    carPhoto: carImages[0]
   }
 
   const handleBooking = () => {
+    if (requestedSeats > driverData.availableSeats) {
+      alert(`Only ${driverData.availableSeats} seats available`)
+      return
+    }
+
     setIsBooking(true)
+    
+    const bookingData = {
+      driverId: params.id,
+      driverName: driverData.name,
+      from: pickup,
+      to: destination,
+      price: driverData.price * requestedSeats,
+      seats: requestedSeats,
+      status: 'upcoming',
+      date: new Date().toISOString()
+    }
+    
+    // Store in localStorage for persistence
+    const existingBookings = JSON.parse(localStorage.getItem('upcomingRides') || '[]')
+    localStorage.setItem('upcomingRides', JSON.stringify([...existingBookings, bookingData]))
     
     setTimeout(() => {
       setIsBooking(false)
       setIsBooked(true)
       
-      // Show success message and redirect
       setTimeout(() => {
         router.push('/rides')
       }, 2000)
@@ -132,7 +160,7 @@ export default function DriverDetailsPage({ params }: { params: { id: string } }
             <img 
               src={driverData.carPhoto || "/placeholder.svg"} 
               alt="Car" 
-              className="h-24 object-contain"
+              className="h-32 object-contain"
             />
           </div>
 
@@ -140,7 +168,7 @@ export default function DriverDetailsPage({ params }: { params: { id: string } }
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div>
               <p className="text-sm font-sans font-bold text-gray-800">{driverData.carModel}</p>
-              <p className="text-xs font-sans text-gray-500">{driverData.carYear} • {driverData.seats} seats</p>
+              <p className="text-xs font-sans text-gray-500">{driverData.carYear}</p>
             </div>
             <div className="text-right">
               <p className="text-2xl font-sans font-bold text-[#3A85BD]">{driverData.plateNumber}</p>
@@ -148,18 +176,53 @@ export default function DriverDetailsPage({ params }: { params: { id: string } }
             </div>
           </div>
 
-          {/* Ride Details */}
+          <div className="bg-gradient-to-r from-[#7F7CAF]/10 to-[#3A85BD]/10 rounded-2xl p-4 mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-sans font-bold text-gray-700">Available Seats</span>
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-[#3A85BD]" />
+                <span className="text-lg font-sans font-bold text-[#3A85BD]">
+                  {driverData.availableSeats}/{driverData.totalSeats}
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {[...Array(driverData.totalSeats)].map((_, i) => (
+                <div
+                  key={i}
+                  className={`flex-1 h-2 rounded-full ${
+                    i < driverData.totalSeats - driverData.availableSeats
+                      ? 'bg-gray-400'
+                      : 'bg-green-400'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
           <div className="bg-gray-50 rounded-2xl p-4 mb-6">
-            <h3 className="font-sans font-bold text-gray-800 mb-3">Ride Details</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm font-sans text-gray-600">Passengers</span>
-                <span className="text-sm font-sans font-bold text-gray-800">{passengers}</span>
+            <h3 className="font-sans font-bold text-gray-800 mb-3">Request Seats</h3>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-sans text-gray-600">Number of seats</span>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setRequestedSeats(Math.max(1, requestedSeats - 1))}
+                  className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center font-bold"
+                >
+                  -
+                </button>
+                <span className="text-xl font-sans font-bold text-gray-800 w-8 text-center">{requestedSeats}</span>
+                <button
+                  onClick={() => setRequestedSeats(Math.min(driverData.availableSeats, requestedSeats + 1))}
+                  className="w-8 h-8 rounded-full bg-[#3A85BD] hover:bg-[#2a6590] flex items-center justify-center font-bold text-white"
+                >
+                  +
+                </button>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm font-sans text-gray-600">Fare</span>
-                <span className="text-lg font-sans font-bold text-[#3A85BD]">${driverData.price.toFixed(2)}</span>
-              </div>
+            </div>
+            <div className="flex justify-between pt-3 border-t border-gray-200">
+              <span className="text-sm font-sans text-gray-600">Total Fare</span>
+              <span className="text-2xl font-sans font-bold text-[#3A85BD]">${(driverData.price * requestedSeats).toFixed(2)}</span>
             </div>
           </div>
 
@@ -201,7 +264,7 @@ export default function DriverDetailsPage({ params }: { params: { id: string } }
               <CheckCircle2 className="w-12 h-12 text-green-600" />
             </div>
             <h3 className="text-2xl font-serif font-bold text-gray-800 mb-2">Ride Booked!</h3>
-            <p className="text-gray-600 font-sans">Your ride has been confirmed. Redirecting to your rides...</p>
+            <p className="text-gray-600 font-sans">Your ride has been added to upcoming rides</p>
           </div>
         </div>
       )}

@@ -1,69 +1,36 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BottomNav } from '@/components/bottom-nav'
-import { MapPin, Clock, Star, ArrowRight } from 'lucide-react'
+import { MapPin, Clock, Star, ArrowRight, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-
-const mockRides = [
-  {
-    id: 1,
-    type: 'completed',
-    driver: 'Sarah Johnson',
-    date: 'Apr 15, 2025',
-    time: '9:30 AM',
-    from: 'Campus Main Gate',
-    to: 'City Center Mall',
-    price: 5.00,
-    rating: 5,
-    canRate: false
-  },
-  {
-    id: 2,
-    type: 'completed',
-    driver: 'Mike Chen',
-    date: 'Apr 14, 2025',
-    time: '2:15 PM',
-    from: 'Library Block',
-    to: 'Downtown Station',
-    price: 7.50,
-    rating: null,
-    canRate: true
-  },
-  {
-    id: 3,
-    type: 'upcoming',
-    driver: 'Emma Davis',
-    date: 'Apr 20, 2025',
-    time: '8:00 AM',
-    from: 'Campus Main Gate',
-    to: 'Airport',
-    price: 15.00,
-    rating: null,
-    canRate: false
-  },
-  {
-    id: 4,
-    type: 'completed',
-    driver: 'Ahmed Ali',
-    date: 'Apr 13, 2025',
-    time: '3:45 PM',
-    from: 'American University of Bahrain',
-    to: 'City Center Mall',
-    price: 5.50,
-    rating: 4,
-    canRate: false
-  }
-]
+import { Button } from '@/components/ui/button'
 
 export default function RidesPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'all' | 'upcoming' | 'completed'>('all')
+  const [rides, setRides] = useState<any[]>([])
 
-  const filteredRides = mockRides.filter(ride => {
+  useEffect(() => {
+    const upcomingRides = JSON.parse(localStorage.getItem('upcomingRides') || '[]')
+    const completedRides = JSON.parse(localStorage.getItem('completedRides') || '[]')
+    
+    const allRides = [
+      ...upcomingRides.map((r: any) => ({ ...r, type: 'upcoming' })),
+      ...completedRides.map((r: any) => ({ ...r, type: 'completed' }))
+    ]
+    
+    setRides(allRides)
+  }, [])
+
+  const filteredRides = rides.filter(ride => {
     if (activeTab === 'all') return true
     return ride.type === activeTab
   })
+
+  const handleRatePassengers = (rideId: string) => {
+    router.push(`/rate-passengers/${rideId}`)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -122,17 +89,24 @@ export default function RidesPage() {
               <MapPin className="w-10 h-10 text-gray-400" />
             </div>
             <p className="text-gray-500 font-sans">No {activeTab === 'all' ? '' : activeTab} rides found</p>
+            <Button
+              onClick={() => router.push('/rider')}
+              className="mt-6 h-12 px-8 rounded-full font-sans font-bold text-white"
+              style={{ background: 'linear-gradient(135deg, #3A85BD 0%, #9FB798 100%)' }}
+            >
+              Book a Ride
+            </Button>
           </div>
         ) : (
-          filteredRides.map((ride) => (
+          filteredRides.map((ride, index) => (
             <div
-              key={ride.id}
+              key={index}
               className="w-full bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all"
             >
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-sans font-bold text-gray-800">{ride.driver}</h3>
+                    <h3 className="font-sans font-bold text-gray-800">{ride.driverName || 'Driver'}</h3>
                     {ride.rating && (
                       <div className="flex items-center gap-1">
                         <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
@@ -142,7 +116,7 @@ export default function RidesPage() {
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-500 font-sans">
                     <Clock className="w-4 h-4" />
-                    <span>{ride.date} at {ride.time}</span>
+                    <span>{new Date(ride.date).toLocaleDateString()}</span>
                   </div>
                 </div>
                 <div className={`px-3 py-1 rounded-full text-xs font-sans font-bold ${
@@ -172,19 +146,22 @@ export default function RidesPage() {
               </div>
 
               <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                <p className="text-lg font-sans font-bold text-[#3A85BD]">${ride.price.toFixed(2)}</p>
-                {ride.canRate && ride.type === 'completed' ? (
+                <div className="flex items-center gap-4">
+                  <p className="text-lg font-sans font-bold text-[#3A85BD]">${ride.price.toFixed(2)}</p>
+                  {ride.seats && (
+                    <div className="flex items-center gap-1 text-sm font-sans text-gray-500">
+                      <Users className="w-4 h-4" />
+                      <span>{ride.seats} seat{ride.seats > 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                </div>
+                {ride.type === 'completed' && (
                   <button
-                    onClick={() => router.push('/ratings')}
+                    onClick={() => router.push('/rate-passengers/' + index)}
                     className="px-4 py-2 bg-gradient-to-r from-[#3A85BD] to-[#7F7CAF] text-white rounded-full font-sans font-bold text-sm hover:opacity-90 transition-opacity"
                   >
-                    Rate Trip
+                    {ride.hasRated ? 'View Rating' : 'Rate Passengers'}
                   </button>
-                ) : (
-                  <div className="flex items-center gap-2 text-gray-400 font-sans font-bold text-sm">
-                    <span>View Details</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </div>
                 )}
               </div>
             </div>
