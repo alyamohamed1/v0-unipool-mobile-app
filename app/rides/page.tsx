@@ -2,16 +2,22 @@
 
 import { useState, useEffect } from 'react'
 import { BottomNav } from '@/components/bottom-nav'
-import { MapPin, Clock, Star, ArrowRight, Users } from 'lucide-react'
+import { MapPin, Clock, Star, ArrowRight, Users, CheckCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/hooks/use-toast'
 
 export default function RidesPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<'all' | 'upcoming' | 'completed'>('all')
   const [rides, setRides] = useState<any[]>([])
 
   useEffect(() => {
+    loadRides()
+  }, [])
+
+  const loadRides = () => {
     const upcomingRides = JSON.parse(localStorage.getItem('upcomingRides') || '[]')
     const completedRides = JSON.parse(localStorage.getItem('completedRides') || '[]')
     
@@ -21,7 +27,28 @@ export default function RidesPage() {
     ]
     
     setRides(allRides)
-  }, [])
+  }
+
+  const markAsCompleted = (rideIndex: number) => {
+    const upcomingRides = JSON.parse(localStorage.getItem('upcomingRides') || '[]')
+    const completedRides = JSON.parse(localStorage.getItem('completedRides') || '[]')
+    
+    if (rideIndex < upcomingRides.length) {
+      const rideToComplete = upcomingRides[rideIndex]
+      upcomingRides.splice(rideIndex, 1)
+      completedRides.push(rideToComplete)
+      
+      localStorage.setItem('upcomingRides', JSON.stringify(upcomingRides))
+      localStorage.setItem('completedRides', JSON.stringify(completedRides))
+      
+      loadRides()
+      
+      toast({
+        title: "Ride Completed",
+        description: "The ride has been moved to completed trips.",
+      })
+    }
+  }
 
   const filteredRides = rides.filter(ride => {
     if (activeTab === 'all') return true
@@ -155,14 +182,25 @@ export default function RidesPage() {
                     </div>
                   )}
                 </div>
-                {ride.type === 'completed' && (
-                  <button
-                    onClick={() => router.push('/rate-passengers/' + index)}
-                    className="px-4 py-2 bg-gradient-to-r from-[#3A85BD] to-[#7F7CAF] text-white rounded-full font-sans font-bold text-sm hover:opacity-90 transition-opacity"
-                  >
-                    {ride.hasRated ? 'View Rating' : 'Rate Passengers'}
-                  </button>
-                )}
+                <div className="flex gap-2">
+                  {ride.type === 'upcoming' && (
+                    <button
+                      onClick={() => markAsCompleted(index)}
+                      className="px-4 py-2 bg-green-100 text-green-700 rounded-full font-sans font-bold text-sm hover:bg-green-200 transition-colors flex items-center gap-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Complete
+                    </button>
+                  )}
+                  {ride.type === 'completed' && (
+                    <button
+                      onClick={() => router.push('/rate-passengers/' + index)}
+                      className="px-4 py-2 bg-gradient-to-r from-[#3A85BD] to-[#7F7CAF] text-white rounded-full font-sans font-bold text-sm hover:opacity-90 transition-opacity"
+                    >
+                      {ride.hasRated ? 'View Rating' : 'Rate Passengers'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))

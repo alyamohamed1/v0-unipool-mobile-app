@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BottomNav } from '@/components/bottom-nav'
 import { ArrowLeft, Edit, Car, Star, Award, Settings, Shield, Bell, HelpCircle, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,29 @@ import { useRouter } from 'next/navigation'
 
 export default function ProfilePage() {
   const router = useRouter()
+  const [profile, setProfile] = useState({
+    name: 'John Doe',
+    email: 'john.doe@university.edu',
+    carModel: 'Toyota Camry 2022',
+    plateNumber: 'ABC-1234',
+    rating: 4.8,
+    trips: 127,
+    points: 850
+  })
+
+  useEffect(() => {
+    const savedProfile = localStorage.getItem('userProfile')
+    if (savedProfile) {
+      const data = JSON.parse(savedProfile)
+      setProfile(prev => ({
+        ...prev,
+        name: data.name || prev.name,
+        email: data.email || prev.email,
+        carModel: data.carModel || prev.carModel,
+        plateNumber: data.plateNumber || prev.plateNumber
+      }))
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-white pb-20">
@@ -30,35 +53,38 @@ export default function ProfilePage() {
           <div className="relative">
             <div className="w-24 h-24 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center overflow-hidden border-4 border-white/50">
               <img 
-                src="/profile-photo.png" 
+                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png" 
                 alt="Profile" 
                 className="w-full h-full object-cover"
               />
             </div>
-            <button className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-lg">
+            <button 
+              onClick={() => router.push('/profile/edit')}
+              className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-lg"
+            >
               <Edit className="w-4 h-4 text-[#3A85BD]" />
             </button>
           </div>
-          <h2 className="text-white font-serif text-2xl font-bold mt-4">John Doe</h2>
-          <p className="text-white/80 font-sans text-sm">john.doe@university.edu</p>
+          <h2 className="text-white font-serif text-2xl font-bold mt-4">{profile.name}</h2>
+          <p className="text-white/80 font-sans text-sm">{profile.email}</p>
           
           {/* Stats */}
           <div className="flex gap-8 mt-6">
             <div className="text-center">
               <div className="flex items-center gap-1 justify-center mb-1">
                 <Star className="w-4 h-4 text-yellow-300 fill-yellow-300" />
-                <p className="text-white font-sans font-bold text-lg">4.8</p>
+                <p className="text-white font-sans font-bold text-lg">{profile.rating}</p>
               </div>
               <p className="text-white/70 font-sans text-xs">Rating</p>
             </div>
             <div className="text-center">
-              <p className="text-white font-sans font-bold text-lg mb-1">127</p>
+              <p className="text-white font-sans font-bold text-lg mb-1">{profile.trips}</p>
               <p className="text-white/70 font-sans text-xs">Trips</p>
             </div>
             <div className="text-center">
               <div className="flex items-center gap-1 justify-center mb-1">
                 <Award className="w-4 h-4 text-yellow-300" />
-                <p className="text-white font-sans font-bold text-lg">850</p>
+                <p className="text-white font-sans font-bold text-lg">{profile.points}</p>
               </div>
               <p className="text-white/70 font-sans text-xs">Points</p>
             </div>
@@ -72,13 +98,18 @@ export default function ProfilePage() {
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border-2 border-gray-100">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-gray-800 font-serif text-lg font-bold">My Vehicle</h3>
-            <button className="text-[#3A85BD] font-sans text-sm font-bold">Edit</button>
+            <button 
+              onClick={() => router.push('/profile/edit')}
+              className="text-[#3A85BD] font-sans text-sm font-bold"
+            >
+              Edit
+            </button>
           </div>
           <div className="flex items-center gap-4">
             <Car className="w-10 h-10 text-[#3A85BD]" />
             <div>
-              <p className="font-sans font-bold text-gray-800">Toyota Camry 2022</p>
-              <p className="font-sans text-sm text-gray-500">Plate: ABC-1234</p>
+              <p className="font-sans font-bold text-gray-800">{profile.carModel}</p>
+              <p className="font-sans text-sm text-gray-500">Plate: {profile.plateNumber}</p>
             </div>
           </div>
         </div>

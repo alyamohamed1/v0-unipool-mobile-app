@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { BottomNav } from '@/components/bottom-nav'
-import { ArrowLeft, MapPin, Star, Car, Filter, Users } from 'lucide-react'
+import { ArrowLeft, MapPin, Star, Car, Filter, Users, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRouter, useSearchParams } from 'next/navigation'
 import InteractiveMap from '@/components/interactive-map'
@@ -19,6 +19,7 @@ const mockDrivers = [
   {
     id: 1,
     name: 'Ahmed Al-Khalifa',
+    gender: 'Male',
     rating: 4.8,
     carModel: 'Toyota Camry',
     plateNumber: '123456',
@@ -35,6 +36,7 @@ const mockDrivers = [
   {
     id: 2,
     name: 'Sara Mohammed',
+    gender: 'Female',
     rating: 4.9,
     carModel: 'Honda Accord',
     plateNumber: '789012',
@@ -51,6 +53,7 @@ const mockDrivers = [
   {
     id: 3,
     name: 'Khalid Hassan',
+    gender: 'Male',
     rating: 4.7,
     carModel: 'Nissan Altima',
     plateNumber: '345678',
@@ -67,6 +70,7 @@ const mockDrivers = [
   {
     id: 4,
     name: 'Fatima Ali',
+    gender: 'Female',
     rating: 5.0,
     carModel: 'Hyundai Sonata',
     plateNumber: '901234',
@@ -87,19 +91,28 @@ export default function SearchDriversPage() {
   const searchParams = useSearchParams()
   const [drivers, setDrivers] = useState(mockDrivers)
   const [sortBy, setSortBy] = useState<'price' | 'distance' | 'rating'>('distance')
+  const [genderFilter, setGenderFilter] = useState<'All' | 'Male' | 'Female'>('All')
+  const [showFilterModal, setShowFilterModal] = useState(false)
   
   const pickup = searchParams.get('from') || 'Unknown'
   const destination = searchParams.get('to') || 'Unknown'
 
   useEffect(() => {
-    const sorted = [...mockDrivers].sort((a, b) => {
+    let filtered = [...mockDrivers]
+    
+    if (genderFilter !== 'All') {
+      filtered = filtered.filter(driver => driver.gender === genderFilter)
+    }
+    
+    filtered.sort((a, b) => {
       if (sortBy === 'price') return a.price - b.price
       if (sortBy === 'rating') return b.rating - a.rating
       if (sortBy === 'distance') return parseFloat(a.distance) - parseFloat(b.distance)
       return 0
     })
-    setDrivers(sorted)
-  }, [sortBy])
+    
+    setDrivers(filtered)
+  }, [sortBy, genderFilter])
 
   return (
     <div className="min-h-screen bg-white pb-20">
@@ -139,8 +152,14 @@ export default function SearchDriversPage() {
             className="h-12 w-12 object-contain"
           />
           
-          <button className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center">
+          <button 
+            onClick={() => setShowFilterModal(true)}
+            className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center relative"
+          >
             <Filter className="w-5 h-5 text-gray-700" />
+            {genderFilter !== 'All' && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#3A85BD] rounded-full border-2 border-white"></div>
+            )}
           </button>
         </div>
       </div>
@@ -181,9 +200,16 @@ export default function SearchDriversPage() {
 
       {/* Available Drivers */}
       <div className="px-6 py-4">
-        <h2 className="text-xl font-serif font-bold text-gray-800 mb-4">
-          {drivers.length} Available Drivers
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-serif font-bold text-gray-800">
+            {drivers.length} Available Drivers
+          </h2>
+          {genderFilter !== 'All' && (
+            <span className="text-sm font-sans text-gray-500">
+              Filtered by: {genderFilter}
+            </span>
+          )}
+        </div>
         
         <div className="space-y-4">
           {drivers.map((driver) => (
@@ -236,6 +262,91 @@ export default function SearchDriversPage() {
           ))}
         </div>
       </div>
+
+      {/* Filter Modal */}
+      {showFilterModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
+          <div className="bg-white w-full rounded-t-3xl p-6 animate-slide-up">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-serif font-bold text-gray-800">Filters</h3>
+              <button 
+                onClick={() => setShowFilterModal(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <h4 className="text-sm font-sans font-bold text-gray-700">Gender Preference</h4>
+              
+              <div className="space-y-2">
+                <button
+                  onClick={() => setGenderFilter('All')}
+                  className={`w-full p-4 rounded-xl border-2 transition-all ${
+                    genderFilter === 'All'
+                      ? 'border-[#3A85BD] bg-[#3A85BD]/5'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-sans font-bold text-gray-800">All Drivers</span>
+                    {genderFilter === 'All' && (
+                      <div className="w-5 h-5 rounded-full bg-[#3A85BD] flex items-center justify-center">
+                        <div className="w-2 h-2 rounded-full bg-white"></div>
+                      </div>
+                    )}
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setGenderFilter('Male')}
+                  className={`w-full p-4 rounded-xl border-2 transition-all ${
+                    genderFilter === 'Male'
+                      ? 'border-[#3A85BD] bg-[#3A85BD]/5'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-sans font-bold text-gray-800">Male Drivers Only</span>
+                    {genderFilter === 'Male' && (
+                      <div className="w-5 h-5 rounded-full bg-[#3A85BD] flex items-center justify-center">
+                        <div className="w-2 h-2 rounded-full bg-white"></div>
+                      </div>
+                    )}
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setGenderFilter('Female')}
+                  className={`w-full p-4 rounded-xl border-2 transition-all ${
+                    genderFilter === 'Female'
+                      ? 'border-[#3A85BD] bg-[#3A85BD]/5'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-sans font-bold text-gray-800">Female Drivers Only</span>
+                    {genderFilter === 'Female' && (
+                      <div className="w-5 h-5 rounded-full bg-[#3A85BD] flex items-center justify-center">
+                        <div className="w-2 h-2 rounded-full bg-white"></div>
+                      </div>
+                    )}
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => setShowFilterModal(false)}
+              className="w-full h-12 rounded-full font-sans font-bold text-white"
+              style={{ background: 'linear-gradient(135deg, #3A85BD 0%, #7F7CAF 100%)' }}
+            >
+              Apply Filters
+            </Button>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>
