@@ -1,9 +1,8 @@
 'use client'
 
-import { auth } from '../../../../firebaseConfig'
 import { useState } from 'react'
 import { BottomNav } from '@/components/bottom-nav'
-import { ArrowLeft, Star, MessageCircle, CheckCircle2, Users } from 'lucide-react'
+import { ArrowLeft, MapPin, Star, MessageCircle, Shield, Car, CheckCircle2, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRouter, useSearchParams } from 'next/navigation'
 import InteractiveMap from '@/components/interactive-map'
@@ -22,7 +21,7 @@ export default function DriverDetailsPage({ params }: { params: { id: string } }
   const [isBooking, setIsBooking] = useState(false)
   const [isBooked, setIsBooked] = useState(false)
   const [requestedSeats, setRequestedSeats] = useState(1)
-
+  
   const pickup = searchParams.get('from') || 'American University of Bahrain'
   const destination = searchParams.get('to') || 'City Center Mall'
 
@@ -33,61 +32,49 @@ export default function DriverDetailsPage({ params }: { params: { id: string } }
     carModel: 'Toyota Camry',
     carYear: '2022',
     plateNumber: '123456',
-    price: 5.0,
+    price: 5.00,
     totalSeats: 4,
     availableSeats: 3,
     photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
     carPhoto: carImages[0]
   }
 
-  const handleBooking = async () => {
+  const handleBooking = () => {
     if (requestedSeats > driverData.availableSeats) {
       alert(`Only ${driverData.availableSeats} seats available`)
       return
     }
 
-    const user = auth.currentUser
-    if (!user) {
-      alert('You must be logged in to book a ride.')
-      return
+    setIsBooking(true)
+    
+    const bookingData = {
+      driverId: params.id,
+      driverName: driverData.name,
+      from: pickup,
+      to: destination,
+      price: driverData.price * requestedSeats,
+      seats: requestedSeats,
+      status: 'upcoming',
+      date: new Date().toISOString()
     }
-
-    try {
-      setIsBooking(true)
-
-      const res = await fetch('/api/rides/book', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          rideId: params.id,
-          driverId: params.id,
-          riderId: user.uid
-        })
-      })
-
-      const data = await res.json()
-
-      if (!data.success) {
-        alert('Booking failed.')
-        return
-      }
-
+    
+    // Store in localStorage for persistence
+    const existingBookings = JSON.parse(localStorage.getItem('upcomingRides') || '[]')
+    localStorage.setItem('upcomingRides', JSON.stringify([...existingBookings, bookingData]))
+    
+    setTimeout(() => {
+      setIsBooking(false)
       setIsBooked(true)
-
+      
       setTimeout(() => {
         router.push('/rides')
       }, 2000)
-    } catch (err) {
-      alert('Something went wrong.')
-    } finally {
-      setIsBooking(false)
-    }
+    }, 1500)
   }
 
   return (
     <div className="min-h-screen bg-white pb-20">
+      {/* Map Section */}
       <div className="relative h-[40vh]">
         <InteractiveMap
           pickupLocation={{
@@ -101,73 +88,83 @@ export default function DriverDetailsPage({ params }: { params: { id: string } }
             name: destination
           }}
           driverLocation={{
-            lat: 26.07,
-            lng: 50.56,
+            lat: 26.0700,
+            lng: 50.5600,
             name: driverData.name
           }}
           showRoute={true}
         />
-
+        
+        {/* Header */}
         <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between z-10">
-          <button
+          <button 
             onClick={() => router.back()}
             className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center"
           >
             <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
-
-          <img
+          
+          <img 
             src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image%203-rl5faAKInPGEF3xiVjQ8HuH8DrmWNT.png"
-            alt="UNIPOOL Icon"
+            alt="UNIPOOL Icon" 
             className="h-12 w-12 object-contain"
           />
-
-          <button
+          
+          <button 
             onClick={() => router.push('/safety')}
             className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center"
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <circle cx="10" cy="10" r="1.5" fill="#333" />
-              <circle cx="15" cy="10" r="1.5" fill="#333" />
-              <circle cx="5" cy="10" r="1.5" fill="#333" />
+              <circle cx="10" cy="10" r="1.5" fill="#333"/>
+              <circle cx="15" cy="10" r="1.5" fill="#333"/>
+              <circle cx="5" cy="10" r="1.5" fill="#333"/>
             </svg>
           </button>
         </div>
       </div>
 
+      {/* Driver Card */}
       <div className="px-6 py-6">
         <div className="bg-white border-2 border-gray-200 rounded-3xl p-6 shadow-lg">
           <div className="flex items-start gap-4 mb-6">
-            <div className="w-16 h-16 rounded-full bg-gray-300 overflow-hidden">
-              <img src={driverData.photo} alt={driverData.name} className="w-full h-full object-cover" />
+            {/* Driver Photo */}
+            <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              <img 
+                src={driverData.photo || "/placeholder.svg"} 
+                alt={driverData.name}
+                className="w-full h-full object-cover" 
+              />
             </div>
 
+            {/* Driver Info */}
             <div className="flex-1">
-              <h2 className="font-sans font-bold text-lg text-gray-800">{driverData.name}</h2>
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="font-sans font-bold text-lg text-gray-800">{driverData.name}</h2>
+              </div>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1">
                   {[...Array(5)].map((_, i) => (
-                    <Star
+                    <Star 
                       key={i}
-                      className={`w-4 h-4 ${
-                        i < Math.floor(driverData.rating)
-                          ? 'text-yellow-400 fill-yellow-400'
-                          : 'text-gray-300'
-                      }`}
+                      className={`w-4 h-4 ${i < Math.floor(driverData.rating) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
                     />
                   ))}
                 </div>
-                <span className="text-sm font-sans text-gray-600">
-                  {driverData.rating} ({driverData.reviews} reviews)
-                </span>
+                <span className="text-sm font-sans text-gray-600">{driverData.rating} ({driverData.reviews} reviews)</span>
               </div>
             </div>
           </div>
 
+          {/* Car Image */}
           <div className="mb-6 flex justify-center">
-            <img src={driverData.carPhoto} alt="Car" className="h-32 object-contain" />
+            <img 
+              src={driverData.carPhoto || "/placeholder.svg"} 
+              alt="Car" 
+              className="h-32 object-contain"
+            />
           </div>
 
+          {/* Car Details */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div>
               <p className="text-sm font-sans font-bold text-gray-800">{driverData.carModel}</p>
@@ -189,6 +186,18 @@ export default function DriverDetailsPage({ params }: { params: { id: string } }
                 </span>
               </div>
             </div>
+            <div className="flex gap-2">
+              {[...Array(driverData.totalSeats)].map((_, i) => (
+                <div
+                  key={i}
+                  className={`flex-1 h-2 rounded-full ${
+                    i < driverData.totalSeats - driverData.availableSeats
+                      ? 'bg-gray-400'
+                      : 'bg-green-400'
+                  }`}
+                />
+              ))}
+            </div>
           </div>
 
           <div className="bg-gray-50 rounded-2xl p-4 mb-6">
@@ -202,13 +211,9 @@ export default function DriverDetailsPage({ params }: { params: { id: string } }
                 >
                   -
                 </button>
-                <span className="text-xl font-sans font-bold text-gray-800 w-8 text-center">
-                  {requestedSeats}
-                </span>
+                <span className="text-xl font-sans font-bold text-gray-800 w-8 text-center">{requestedSeats}</span>
                 <button
-                  onClick={() =>
-                    setRequestedSeats(Math.min(driverData.availableSeats, requestedSeats + 1))
-                  }
+                  onClick={() => setRequestedSeats(Math.min(driverData.availableSeats, requestedSeats + 1))}
                   className="w-8 h-8 rounded-full bg-[#3A85BD] hover:bg-[#2a6590] flex items-center justify-center font-bold text-white"
                 >
                   +
@@ -217,12 +222,11 @@ export default function DriverDetailsPage({ params }: { params: { id: string } }
             </div>
             <div className="flex justify-between pt-3 border-t border-gray-200">
               <span className="text-sm font-sans text-gray-600">Total Fare</span>
-              <span className="text-2xl font-sans font-bold text-[#3A85BD]">
-                ${(driverData.price * requestedSeats).toFixed(2)}
-              </span>
+              <span className="text-2xl font-sans font-bold text-[#3A85BD]">${(driverData.price * requestedSeats).toFixed(2)}</span>
             </div>
           </div>
 
+          {/* Action Buttons */}
           <div className="flex gap-4">
             <Button
               onClick={() => router.push('/chat')}
@@ -252,15 +256,14 @@ export default function DriverDetailsPage({ params }: { params: { id: string } }
         </div>
       </div>
 
+      {/* Success Modal */}
       {isBooked && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
           <div className="bg-white rounded-3xl p-8 mx-4 max-w-sm w-full text-center">
             <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-12 h-12 text-green-600" />
             </div>
-            <h3 className="text-2xl font-serif font-bold text-gray-800 mb-2">
-              Ride Booked!
-            </h3>
+            <h3 className="text-2xl font-serif font-bold text-gray-800 mb-2">Ride Booked!</h3>
             <p className="text-gray-600 font-sans">Your ride has been added to upcoming rides</p>
           </div>
         </div>

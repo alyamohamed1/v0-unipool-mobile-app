@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import InteractiveMap from '@/components/interactive-map'
-import { auth } from '../../firebaseConfig'
 
 export default function DriverHomePage() {
   const router = useRouter()
@@ -21,18 +20,17 @@ export default function DriverHomePage() {
   const [showDateTimeModal, setShowDateTimeModal] = useState(false)
   const [showSeatsModal, setShowSeatsModal] = useState(false)
   const [locationType, setLocationType] = useState<'departure' | 'destination'>('departure')
-  const [isPosting, setIsPosting] = useState(false)
 
   const handlePostRide = () => {
-  if (!destination) {
-    alert('Please set a destination')
-    return
+    if (!destination) {
+      alert('Please set a destination')
+      return
+    }
+    
+    console.log('[v0] Posting ride:', { departure, destination, date, time, availableSeats })
+    
+    router.push('/driver/requests')
   }
-  
-  console.log('[v0] Posting ride:', { departure, destination, date, time, availableSeats })
-  
-  router.push('/driver/requests')
-}
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr)
@@ -148,14 +146,13 @@ export default function DriverHomePage() {
 
           {/* Post Ride Button */}
           <Button
-          onClick={handlePostRide}
-          disabled={isPosting}
-          className="w-full h-14 rounded-full font-sans font-bold text-lg text-white mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
-          style={{ background: 'linear-gradient(135deg, #3A85BD 0%, #9FB798 100%)' }}
+            onClick={handlePostRide}
+            className="w-full h-14 rounded-full font-sans font-bold text-lg text-white mt-4"
+            style={{ background: 'linear-gradient(135deg, #3A85BD 0%, #9FB798 100%)' }}
           >
-          <Plus className="w-6 h-6 mr-2" />
-          {isPosting ? 'POSTING...' : 'POST RIDE'}
-        </Button>
+            <Plus className="w-6 h-6 mr-2" />
+            POST RIDE
+          </Button>
         </div>
       </div>
 
