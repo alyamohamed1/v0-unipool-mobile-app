@@ -21,16 +21,32 @@ export default function DriverHomePage() {
   const [showSeatsModal, setShowSeatsModal] = useState(false)
   const [locationType, setLocationType] = useState<'departure' | 'destination'>('departure')
 
-  const handlePostRide = () => {
-    if (!destination) {
-      alert('Please set a destination')
-      return
-    }
-    
-    console.log('[v0] Posting ride:', { departure, destination, date, time, availableSeats })
-    
-    router.push('/driver/requests')
+ const handlePostRide = () => {
+  if (!destination.trim()) {
+    alert("Please set a destination")
+    return
   }
+
+  const newRide = {
+    id: Date.now().toString(),
+    driverName: "You",
+    from: departure.trim(),
+    to: destination.trim(),
+    dateTime: new Date(`${date}T${time}`).toISOString(),
+    totalSeats: availableSeats,
+    availableSeats: availableSeats
+  }
+
+  // Get existing rides
+  const existing = JSON.parse(localStorage.getItem("postedRides") || "[]")
+
+  // Add new ride
+  localStorage.setItem("postedRides", JSON.stringify([...existing, newRide]))
+
+  alert("Ride posted successfully!")
+
+  router.push("/driver/requests")
+}
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr)
