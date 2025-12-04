@@ -5,11 +5,16 @@ import { ArrowLeft, Camera, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/lib/context/AuthContext'
+import { updateDocument } from '@/lib/firebase/firestore'
+import { uploadFile } from '@/lib/firebase/storage'
 
 export default function EditProfilePage() {
   const router = useRouter()
   const { toast } = useToast()
-  
+  const { user, userData, loading, refreshUserData } = useAuth()
+  const [saving, setSaving] = useState(false)
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -24,33 +29,74 @@ export default function EditProfilePage() {
   })
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem('userProfile')
-    if (savedProfile) {
-      setFormData(JSON.parse(savedProfile))
-    } else {
+    if (!loading && !user) {
+      router.push('/sign-in')
+    }
+  }, [user, loading, router])
+
+  useEffect(() => {
+    if (user && userData) {
       setFormData({
-        name: 'John Doe',
-        email: 'john.doe@university.edu',
-        phone: '+973 1234 5678',
-        university: 'American University of Bahrain',
-        studentId: '202012345',
-        gender: 'Male',
-        bio: 'Love carpooling and meeting new people!',
-        carModel: 'Toyota Camry 2022',
-        plateNumber: 'ABC-1234',
-        carColor: 'Silver'
+        name: userData.name || userData.displayName || '',
+        email: userData.email || '',
+        phone: userData.phone || '',
+        university: (userData as any).university || '',
+        studentId: userData.universityId || '',
+        gender: (userData as any).gender || '',
+        bio: (userData as any).bio || '',
+        carModel: (userData as any).carModel || '',
+        plateNumber: (userData as any).plateNumber || '',
+        carColor: (userData as any).carColor || ''
       })
     }
-  }, [])
+  }, [user, userData])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    localStorage.setItem('userProfile', JSON.stringify(formData))
-    toast({
-      title: "Profile Updated",
-      description: "Your profile has been successfully updated.",
-    })
-    router.push('/profile')
+    if (!user) return
+
+    setSaving(true)
+
+    try {
+      await updateDocument('users', user.uid, {
+        name: formData.name,
+        phone: formData.phone,
+        university: formData.university,
+        universityId: formData.studentId,
+        gender: formData.gender,
+        bio: formData.bio,
+        carModel: formData.carModel,
+        plateNumber: formData.plateNumber,
+        carColor: formData.carColor
+      })
+
+      await refreshUserData()
+
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been successfully updated.",
+      })
+      router.push('/profile')
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update profile. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#3A85BD] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-sans">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -237,11 +283,12 @@ export default function EditProfilePage() {
         {/* Save Button */}
         <Button
           type="submit"
-          className="w-full h-12 rounded-full font-sans font-bold text-white flex items-center justify-center gap-2"
+          disabled={saving}
+          className="w-full h-12 rounded-full font-sans font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50"
           style={{ background: 'linear-gradient(135deg, #3A85BD 0%, #7F7CAF 100%)' }}
         >
           <Save className="w-5 h-5" />
-          Save Changes
+          {saving ? 'Saving...' : 'Save Changes'}
         </Button>
       </form>
     </div>

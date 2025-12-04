@@ -1,22 +1,36 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { MapPin, Clock, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/lib/context/AuthContext"
+import { useToast } from "@/hooks/use-toast"
 
 export default function RiderHomePage() {
   const router = useRouter()
+  const { user, loading } = useAuth()
+  const { toast } = useToast()
 
   const [from, setFrom] = useState("")
   const [to, setTo] = useState("")
-  const [date, setDate] = useState("")
-  const [time, setTime] = useState("")
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [time, setTime] = useState("09:00")
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/sign-in')
+    }
+  }, [user, loading, router])
 
   const handleSearch = () => {
     if (!from.trim() || !to.trim() || !date || !time) {
-      alert("Please fill in all fields")
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all fields",
+        variant: "destructive"
+      })
       return
     }
 
@@ -27,7 +41,18 @@ export default function RiderHomePage() {
       time
     })
 
-    router.push(`/search-results?${params.toString()}`)
+    router.push(`/rider/search-drivers?${params.toString()}`)
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#3A85BD] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-sans">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

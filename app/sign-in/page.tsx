@@ -6,16 +6,51 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useRouter } from 'next/navigation'
+import { loginUser } from '@/lib/firebase/auth'
+import { useToast } from '@/hooks/use-toast'
 
 export default function SignInPage() {
   const router = useRouter()
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Navigate to role selection after sign in
-    router.push('/role-selection')
+    setLoading(true)
+
+    try {
+      const { user, error } = await loginUser(email, password)
+
+      if (error) {
+        toast({
+          title: "Sign In Failed",
+          description: error,
+          variant: "destructive"
+        })
+        setLoading(false)
+        return
+      }
+
+      if (user) {
+        toast({
+          title: "Welcome back!",
+          description: "Signed in successfully"
+        })
+
+        // Navigate to role selection
+        router.push('/role-selection')
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -79,9 +114,10 @@ export default function SignInPage() {
 
             <Button
               type="submit"
-              className="w-full h-14 bg-[#7F7CAF] hover:bg-[#7F7CAF]/90 text-white font-sans font-bold text-lg rounded-full mt-8"
+              disabled={loading}
+              className="w-full h-14 bg-[#7F7CAF] hover:bg-[#7F7CAF]/90 text-white font-sans font-bold text-lg rounded-full mt-8 disabled:opacity-50"
             >
-              SIGN IN
+              {loading ? 'SIGNING IN...' : 'SIGN IN'}
             </Button>
 
             <div className="text-center pt-4">

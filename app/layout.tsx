@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import { Montserrat, Roboto } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
-import { AuthProvider } from "@/lib/context/AuthContext";
+import { AuthProvider } from "@/lib/context/AuthContext"
+import { Toaster } from "@/components/ui/toaster"
 
 const montserrat = Montserrat({ 
   subsets: ["latin"],
@@ -48,6 +49,7 @@ export default function RootLayout({
       <body className={`${roboto.variable} ${montserrat.variable} font-sans antialiased`}>
         <AuthProvider>
         {children}
+        <Toaster />
         </AuthProvider>
         <Analytics />
       </body>

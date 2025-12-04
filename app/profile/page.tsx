@@ -5,32 +5,71 @@ import { BottomNav } from '@/components/bottom-nav'
 import { ArrowLeft, Edit, Car, Star, Award, Settings, Shield, Bell, HelpCircle, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/context/AuthContext'
+import { logoutUser } from '@/lib/firebase/auth'
+import { useToast } from '@/hooks/use-toast'
 
 export default function ProfilePage() {
   const router = useRouter()
+  const { user, userData, loading } = useAuth()
+  const { toast } = useToast()
   const [profile, setProfile] = useState({
-    name: 'John Doe',
-    email: 'john.doe@university.edu',
-    carModel: 'Toyota Camry 2022',
-    plateNumber: 'ABC-1234',
-    rating: 4.8,
-    trips: 127,
-    points: 850
+    name: '',
+    email: '',
+    carModel: '',
+    plateNumber: '',
+    rating: 0,
+    trips: 0,
+    points: 0
   })
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem('userProfile')
-    if (savedProfile) {
-      const data = JSON.parse(savedProfile)
-      setProfile(prev => ({
-        ...prev,
-        name: data.name || prev.name,
-        email: data.email || prev.email,
-        carModel: data.carModel || prev.carModel,
-        plateNumber: data.plateNumber || prev.plateNumber
-      }))
+    if (!loading && !user) {
+      router.push('/sign-in')
     }
-  }, [])
+  }, [user, loading, router])
+
+  useEffect(() => {
+    if (user && userData) {
+      setProfile({
+        name: userData.name || userData.displayName || 'User',
+        email: userData.email || '',
+        carModel: (userData as any).carModel || '',
+        plateNumber: (userData as any).plateNumber || '',
+        rating: (userData as any).rating || 0,
+        trips: (userData as any).trips || 0,
+        points: (userData as any).points || 0
+      })
+    }
+  }, [user, userData])
+
+  const handleLogout = async () => {
+    const { error } = await logoutUser()
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to log out",
+        variant: "destructive"
+      })
+    } else {
+      toast({
+        title: "Logged Out",
+        description: "You have been logged out successfully"
+      })
+      router.push('/')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#3A85BD] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-sans">Loading profile...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-white pb-20">
@@ -191,8 +230,8 @@ export default function ProfilePage() {
             </svg>
           </button>
 
-          <button 
-            onClick={() => router.push('/')}
+          <button
+            onClick={handleLogout}
             className="w-full flex items-center gap-4 p-4 bg-red-50 rounded-xl hover:bg-red-100 transition-colors"
           >
             <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">

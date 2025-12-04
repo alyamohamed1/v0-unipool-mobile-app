@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BottomNav } from '@/components/bottom-nav'
 import { MapPin, Clock, Users, Car, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,45 +8,102 @@ import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import InteractiveMap from '@/components/interactive-map'
+import { useAuth } from '@/lib/context/AuthContext'
+import { useToast } from '@/hooks/use-toast'
+import { rideService } from '@/lib/services/ride.service'
 
 export default function DriverHomePage() {
   const router = useRouter()
+  const { user, userData, loading } = useAuth()
+  const { toast } = useToast()
+  const [posting, setPosting] = useState(false)
   const [departure, setDeparture] = useState('American University of Bahrain')
   const [destination, setDestination] = useState('')
-  const [date, setDate] = useState('2025-04-01')
-  const [time, setTime] = useState('09:41')
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [time, setTime] = useState('09:00')
   const [availableSeats, setAvailableSeats] = useState(3)
   const [showLocationModal, setShowLocationModal] = useState(false)
   const [showDateTimeModal, setShowDateTimeModal] = useState(false)
   const [showSeatsModal, setShowSeatsModal] = useState(false)
   const [locationType, setLocationType] = useState<'departure' | 'destination'>('departure')
 
- const handlePostRide = () => {
-  if (!destination.trim()) {
-    alert("Please set a destination")
-    return
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/sign-in')
+    }
+  }, [user, loading, router])
+
+  const handlePostRide = async () => {
+    if (!destination.trim()) {
+      toast({
+        title: "Missing Destination",
+        description: "Please set a destination",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (!user || !userData) {
+      toast({
+        title: "Error",
+        description: "User not authenticated",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setPosting(true)
+
+    try {
+      const result = await rideService.createRide({
+        driverId: user.uid,
+        driverName: userData.name || userData.displayName || 'Driver',
+        driverPhone: userData.phone,
+        driverRating: (userData as any).rating || 0,
+        from: departure.trim(),
+        to: destination.trim(),
+        date: date,
+        time: time,
+        totalSeats: availableSeats,
+        availableSeats: availableSeats,
+        price: 0,
+        status: 'active'
+      })
+
+      if (result.success) {
+        toast({
+          title: "Ride Posted!",
+          description: "Your ride has been posted successfully"
+        })
+        router.push("/driver/requests")
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to post ride",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to post ride. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setPosting(false)
+    }
   }
 
-  const newRide = {
-    id: Date.now().toString(),
-    driverName: "You",
-    from: departure.trim(),
-    to: destination.trim(),
-    dateTime: new Date(`${date}T${time}`).toISOString(),
-    totalSeats: availableSeats,
-    availableSeats: availableSeats
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#3A85BD] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-sans">Loading...</p>
+        </div>
+      </div>
+    )
   }
-
-  // Get existing rides
-  const existing = JSON.parse(localStorage.getItem("postedRides") || "[]")
-
-  // Add new ride
-  localStorage.setItem("postedRides", JSON.stringify([...existing, newRide]))
-
-  alert("Ride posted successfully!")
-
-  router.push("/driver/requests")
-}
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr)
@@ -163,11 +220,12 @@ export default function DriverHomePage() {
           {/* Post Ride Button */}
           <Button
             onClick={handlePostRide}
-            className="w-full h-14 rounded-full font-sans font-bold text-lg text-white mt-4"
+            disabled={posting}
+            className="w-full h-14 rounded-full font-sans font-bold text-lg text-white mt-4 disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg, #3A85BD 0%, #9FB798 100%)' }}
           >
             <Plus className="w-6 h-6 mr-2" />
-            POST RIDE
+            {posting ? 'POSTING...' : 'POST RIDE'}
           </Button>
         </div>
       </div>

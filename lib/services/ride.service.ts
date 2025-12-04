@@ -94,7 +94,6 @@ export const rideService = {
         collection(db, 'rides'),
         where('status', '==', 'active'),
         where('availableSeats', '>', 0),
-        orderBy('availableSeats'),
         orderBy('createdAt', 'desc')
       );
 
@@ -318,6 +317,222 @@ export const rideService = {
       return {
         success: false,
         error: 'Failed to delete ride',
+      };
+    }
+  },
+
+  // Get booking requests for driver's active ride
+  async getDriverBookingRequests(driverId: string): Promise<{
+    success: boolean;
+    error?: string;
+    requests?: any[];
+  }> {
+    try {
+      // Get the driver's active ride
+      const ridesQuery = query(
+        collection(db, 'rides'),
+        where('driverId', '==', driverId),
+        where('status', '==', 'active'),
+        orderBy('createdAt', 'desc')
+      );
+
+      const ridesSnapshot = await getDocs(ridesQuery);
+
+      if (ridesSnapshot.empty) {
+        return {
+          success: true,
+          requests: [],
+        };
+      }
+
+      // Get the most recent active ride
+      const rideId = ridesSnapshot.docs[0].id;
+      const rideData = ridesSnapshot.docs[0].data();
+
+      // Get booking requests for this ride
+      const requestsQuery = query(
+        collection(db, 'bookingRequests'),
+        where('rideId', '==', rideId),
+        where('status', '==', 'pending'),
+        orderBy('createdAt', 'asc')
+      );
+
+      const requestsSnapshot = await getDocs(requestsQuery);
+
+      const requests = await Promise.all(
+        requestsSnapshot.docs.map(async (requestDoc) => {
+          const requestData = requestDoc.data();
+          // Get rider details
+          const riderDoc = await getDoc(doc(db, 'users', requestData.riderId));
+          const riderData = riderDoc.exists() ? riderDoc.data() : {};
+
+          return {
+            id: requestDoc.id,
+            rideId: requestData.rideId,
+            riderId: requestData.riderId,
+            name: riderData.name || riderData.displayName || 'Unknown',
+            rating: riderData.rating || 0,
+            photo: riderData.photoURL || null,
+            pickup: rideData.from,
+            destination: rideData.to,
+            passengers: requestData.passengers || 1,
+            status: requestData.status,
+            createdAt: requestData.createdAt?.toDate() || new Date(),
+          };
+        })
+      );
+
+      return {
+        success: true,
+        requests,
+      };
+    } catch (error) {
+      console.error('Error getting booking requests:', error);
+      return {
+        success: false,
+        error: 'Failed to fetch booking requests',
+        requests: [],
+      };
+    }
+  },
+
+  // Accept a booking request
+  async acceptBookingRequest(requestId: string, rideId: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      // Get the booking request
+      const requestDoc = await getDoc(doc(db, 'bookingRequests', requestId));
+
+      if (!requestDoc.exists()) {
+        return {
+          success: false,
+          error: 'Booking request not found',
+        };
+      }
+
+      const requestData = requestDoc.data();
+      const passengers = requestData.passengers || 1;
+
+      // Check if ride has enough available seats
+      const rideDoc = await getDoc(doc(db, 'rides', rideId));
+
+      if (!rideDoc.exists()) {
+        return {
+          success: false,
+          error: 'Ride not found',
+        };
+      }
+
+      const rideData = rideDoc.data() as Ride;
+
+      if (rideData.availableSeats < passengers) {
+        return {
+          success: false,
+          error: `Not enough seats available. Only ${rideData.availableSeats} seats left.`,
+        };
+      }
+
+      // Update booking request status
+      await updateDoc(doc(db, 'bookingRequests', requestId), {
+        status: 'accepted',
+        acceptedAt: Timestamp.now(),
+      });
+
+      // Decrement available seats
+      await updateDoc(doc(db, 'rides', rideId), {
+        availableSeats: increment(-passengers),
+      });
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error accepting booking request:', error);
+      return {
+        success: false,
+        error: 'Failed to accept booking request',
+      };
+    }
+  },
+
+  // Decline a booking request
+  async declineBookingRequest(requestId: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      await updateDoc(doc(db, 'bookingRequests', requestId), {
+        status: 'declined',
+        declinedAt: Timestamp.now(),
+      });
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error declining booking request:', error);
+      return {
+        success: false,
+        error: 'Failed to decline booking request',
+      };
+    }
+  },
+
+  // Create a booking request (called by rider when booking)
+  async createBookingRequest(
+    rideId: string,
+    riderId: string,
+    passengers: number = 1
+  ): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      // Check if ride exists and has available seats
+      const rideDoc = await getDoc(doc(db, 'rides', rideId));
+
+      if (!rideDoc.exists()) {
+        return {
+          success: false,
+          error: 'Ride not found',
+        };
+      }
+
+      const rideData = rideDoc.data() as Ride;
+
+      if (rideData.availableSeats < passengers) {
+        return {
+          success: false,
+          error: 'Not enough seats available',
+        };
+      }
+
+      if (rideData.status !== 'active') {
+        return {
+          success: false,
+          error: 'This ride is no longer active',
+        };
+      }
+
+      // Create booking request
+      await addDoc(collection(db, 'bookingRequests'), {
+        rideId,
+        riderId,
+        passengers,
+        status: 'pending',
+        createdAt: Timestamp.now(),
+      });
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error creating booking request:', error);
+      return {
+        success: false,
+        error: 'Failed to create booking request',
       };
     }
   },

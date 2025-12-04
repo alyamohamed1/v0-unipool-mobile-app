@@ -6,113 +6,138 @@ import { ArrowLeft, MapPin, Star, Car, Filter, Users, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRouter, useSearchParams } from 'next/navigation'
 import InteractiveMap from '@/components/interactive-map'
-
-const carImages = [
-  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/car%20a-Gsvh6dNlQ3U6Oear293OKgqNsCmJi1.png',
-  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/car%20b-A58NbtcdkrKg6K2HbAgrdEPrApMKwx.png',
-  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/car%20c-L1yUGQ7Q9yITD18KkLZOntCvCOGX15.png',
-  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/car%20d-1yh99sPPt4QeqgAuvMkb3aZWXkuRyJ.jpeg',
-  'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/car%20e-gZq18IupJqzelzYFUlXHw23pM8fNHX.png'
-]
-
-const mockDrivers = [
-  {
-    id: 1,
-    name: 'Ahmed Al-Khalifa',
-    gender: 'Male',
-    rating: 4.8,
-    carModel: 'Toyota Camry',
-    plateNumber: '123456',
-    photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
-    carPhoto: carImages[0],
-    totalSeats: 4,
-    availableSeats: 3,
-    price: 5.00,
-    distance: '2.3 km',
-    estimatedTime: '8 min',
-    lat: 26.0700,
-    lng: 50.5600
-  },
-  {
-    id: 2,
-    name: 'Sara Mohammed',
-    gender: 'Female',
-    rating: 4.9,
-    carModel: 'Honda Accord',
-    plateNumber: '789012',
-    photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
-    carPhoto: carImages[1],
-    totalSeats: 4,
-    availableSeats: 2,
-    price: 4.50,
-    distance: '3.1 km',
-    estimatedTime: '12 min',
-    lat: 26.0750,
-    lng: 50.5650
-  },
-  {
-    id: 3,
-    name: 'Khalid Hassan',
-    gender: 'Male',
-    rating: 4.7,
-    carModel: 'Nissan Altima',
-    plateNumber: '345678',
-    photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
-    carPhoto: carImages[2],
-    totalSeats: 5,
-    availableSeats: 4,
-    price: 6.00,
-    distance: '1.8 km',
-    estimatedTime: '5 min',
-    lat: 26.0620,
-    lng: 50.5550
-  },
-  {
-    id: 4,
-    name: 'Fatima Ali',
-    gender: 'Female',
-    rating: 5.0,
-    carModel: 'Hyundai Sonata',
-    plateNumber: '901234',
-    photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
-    carPhoto: carImages[3],
-    totalSeats: 4,
-    availableSeats: 1,
-    price: 5.50,
-    distance: '2.7 km',
-    estimatedTime: '10 min',
-    lat: 26.0680,
-    lng: 50.5620
-  }
-]
+import { useAuth } from '@/lib/context/AuthContext'
+import { useToast } from '@/hooks/use-toast'
+import { rideService, Ride } from '@/lib/services/ride.service'
+import { notificationService } from '@/lib/services/notification.service'
 
 export default function SearchDriversPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [drivers, setDrivers] = useState(mockDrivers)
+  const { user, loading } = useAuth()
+  const { toast } = useToast()
+
+  const [rides, setRides] = useState<Ride[]>([])
+  const [loadingRides, setLoadingRides] = useState(true)
+  const [bookingId, setBookingId] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<'price' | 'distance' | 'rating'>('distance')
   const [genderFilter, setGenderFilter] = useState<'All' | 'Male' | 'Female'>('All')
   const [showFilterModal, setShowFilterModal] = useState(false)
-  
+
   const pickup = searchParams.get('from') || 'Unknown'
   const destination = searchParams.get('to') || 'Unknown'
+  const date = searchParams.get('date')
+  const time = searchParams.get('time')
 
   useEffect(() => {
-    let filtered = [...mockDrivers]
-    
-    if (genderFilter !== 'All') {
-      filtered = filtered.filter(driver => driver.gender === genderFilter)
+    if (!loading && !user) {
+      router.push('/sign-in')
     }
-    
-    filtered.sort((a, b) => {
-      if (sortBy === 'price') return a.price - b.price
-      if (sortBy === 'rating') return b.rating - a.rating
-      if (sortBy === 'distance') return parseFloat(a.distance) - parseFloat(b.distance)
-      return 0
-    })
-    
-    setDrivers(filtered)
+  }, [user, loading, router])
+
+  useEffect(() => {
+    fetchAvailableRides()
   }, [sortBy, genderFilter])
+
+  const fetchAvailableRides = async () => {
+    setLoadingRides(true)
+    try {
+      const result = await rideService.getAvailableRides()
+      if (result.success && result.rides) {
+        let filteredRides = result.rides
+
+        // Filter by search criteria
+        if (pickup && pickup !== 'Unknown') {
+          filteredRides = filteredRides.filter(ride =>
+            ride.from.toLowerCase().includes(pickup.toLowerCase())
+          )
+        }
+        if (destination && destination !== 'Unknown') {
+          filteredRides = filteredRides.filter(ride =>
+            ride.to.toLowerCase().includes(destination.toLowerCase())
+          )
+        }
+        if (date) {
+          filteredRides = filteredRides.filter(ride => ride.date === date)
+        }
+
+        // Sort rides
+        filteredRides.sort((a, b) => {
+          if (sortBy === 'price') return a.price - b.price
+          if (sortBy === 'rating') return (b.driverRating || 0) - (a.driverRating || 0)
+          return 0
+        })
+
+        setRides(filteredRides)
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load rides",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load rides",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingRides(false)
+    }
+  }
+
+  const handleBookRide = async (rideId: string) => {
+    if (!user) return
+
+    setBookingId(rideId)
+    try {
+      const result = await rideService.createBookingRequest(rideId, user.uid, 1)
+      if (result.success) {
+        // Find the ride to get driver info
+        const ride = rides.find(r => r.id === rideId)
+        if (ride) {
+          // Send notification to driver
+          await notificationService.notifyRideRequest(
+            ride.driverId,
+            user.displayName || 'Rider',
+            `${ride.from} → ${ride.to}`
+          )
+        }
+
+        toast({
+          title: "Request Sent!",
+          description: "Your booking request has been sent to the driver"
+        })
+        fetchAvailableRides()
+      } else {
+        toast({
+          title: "Booking Failed",
+          description: result.error || "Failed to send booking request",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send booking request",
+        variant: "destructive"
+      })
+    } finally {
+      setBookingId(null)
+    }
+  }
+
+  if (loading || loadingRides) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#3A85BD] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-sans">Searching for rides...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-white pb-20">
@@ -129,11 +154,6 @@ export default function SearchDriversPage() {
             lng: 50.5777,
             name: destination
           }}
-          driverLocation={drivers[0] ? {
-            lat: drivers[0].lat,
-            lng: drivers[0].lng,
-            name: drivers[0].name
-          } : undefined}
           showRoute={true}
         />
         
@@ -202,64 +222,72 @@ export default function SearchDriversPage() {
       <div className="px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-serif font-bold text-gray-800">
-            {drivers.length} Available Drivers
+            {rides.length} Available Rides
           </h2>
-          {genderFilter !== 'All' && (
-            <span className="text-sm font-sans text-gray-500">
-              Filtered by: {genderFilter}
-            </span>
-          )}
         </div>
         
         <div className="space-y-4">
-          {drivers.map((driver) => (
-            <button
-              key={driver.id}
-              onClick={() => router.push(`/rider/driver/${driver.id}?from=${encodeURIComponent(pickup)}&to=${encodeURIComponent(destination)}`)}
-              className="w-full bg-white border-2 border-gray-200 rounded-2xl p-4 hover:border-[#3A85BD] transition-all"
-            >
-              <div className="flex items-center gap-4 mb-3">
-                {/* Driver Photo */}
-                <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                  <img src={driver.photo || "/placeholder.svg"} alt={driver.name} className="w-full h-full object-cover" />
-                </div>
+          {rides.length === 0 ? (
+            <div className="text-center py-12">
+              <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-sans font-bold text-gray-800 mb-2">No Rides Available</h3>
+              <p className="text-gray-500 font-sans text-sm mb-6">
+                No rides found for your search criteria. Try adjusting your search.
+              </p>
+              <Button
+                onClick={() => router.back()}
+                className="h-12 px-8 rounded-full font-sans font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, #3A85BD 0%, #9FB798 100%)' }}
+              >
+                Search Again
+              </Button>
+            </div>
+          ) : (
+            rides.map((ride) => (
+              <div
+                key={ride.id}
+                className="w-full bg-white border-2 border-gray-200 rounded-2xl p-4 hover:border-[#3A85BD] transition-all"
+              >
+                <div className="flex items-center gap-4 mb-3">
+                  {/* Driver Photo */}
+                  <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <span className="text-white font-bold text-xl">{ride.driverName.charAt(0)}</span>
+                  </div>
 
-                {/* Driver Info */}
-                <div className="flex-1 text-left">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-sans font-bold text-gray-800">{driver.name}</h3>
-                    <div className="flex items-center gap-1">
-                      <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                      <span className="text-sm font-sans text-gray-600">{driver.rating}</span>
+                  {/* Driver Info */}
+                  <div className="flex-1 text-left">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-sans font-bold text-gray-800">{ride.driverName}</h3>
+                      <div className="flex items-center gap-1">
+                        <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                        <span className="text-sm font-sans text-gray-600">{ride.driverRating?.toFixed(1) || 'New'}</span>
+                      </div>
+                    </div>
+                    <p className="text-sm font-sans text-gray-500">{ride.from} → {ride.to}</p>
+                    <p className="text-xs font-sans text-gray-400 mt-1">{ride.date} at {ride.time}</p>
+                  </div>
+
+                  {/* Seats */}
+                  <div className="text-right">
+                    <div className="flex items-center gap-1 text-sm font-sans text-gray-600">
+                      <Users className="w-4 h-4" />
+                      <span>{ride.availableSeats}/{ride.totalSeats}</span>
                     </div>
                   </div>
-                  <p className="text-sm font-sans text-gray-500">{driver.carModel}</p>
-                  <div className="flex items-center gap-3 mt-1">
-                    <p className="text-xs font-sans text-gray-400">{driver.distance}</p>
-                    <p className="text-xs font-sans text-gray-400">{driver.estimatedTime}</p>
-                  </div>
                 </div>
 
-                {/* Price */}
-                <div className="text-right">
-                  <p className="text-lg font-sans font-bold text-[#3A85BD]">${driver.price.toFixed(2)}</p>
-                  <div className="flex items-center gap-1 text-xs font-sans text-gray-500 mt-1">
-                    <Users className="w-3 h-3" />
-                    <span>{driver.availableSeats}/{driver.totalSeats} seats</span>
-                  </div>
-                </div>
+                {/* Book Button */}
+                <Button
+                  onClick={() => handleBookRide(ride.id!)}
+                  disabled={bookingId === ride.id}
+                  className="w-full h-10 rounded-full font-sans font-bold text-white disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #3A85BD 0%, #9FB798 100%)' }}
+                >
+                  {bookingId === ride.id ? 'Sending Request...' : 'Request Ride'}
+                </Button>
               </div>
-
-              {/* Car Image */}
-              <div className="flex justify-center py-2">
-                <img 
-                  src={driver.carPhoto || "/placeholder.svg"} 
-                  alt={driver.carModel}
-                  className="h-16 object-contain"
-                />
-              </div>
-            </button>
-          ))}
+            ))
+          )}
         </div>
       </div>
 

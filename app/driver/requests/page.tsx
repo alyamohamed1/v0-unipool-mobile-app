@@ -1,70 +1,166 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BottomNav } from '@/components/bottom-nav'
 import { ArrowLeft, MapPin, Star, Car, X, Check, AlertCircle, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 import InteractiveMap from '@/components/interactive-map'
-
-const mockRequests = [
-  {
-    id: 1,
-    name: 'Sarah Ahmed',
-    rating: 4.9,
-    photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
-    pickup: 'Building A, Campus',
-    destination: 'City Center Mall',
-    distance: '3.2 km',
-    passengers: 2
-  },
-  {
-    id: 2,
-    name: 'Mohammed Hassan',
-    rating: 4.7,
-    photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
-    pickup: 'Library Block',
-    destination: 'Downtown',
-    distance: '4.5 km',
-    passengers: 1
-  },
-  {
-    id: 3,
-    name: 'Fatima Ali',
-    rating: 4.8,
-    photo: 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Profile-PNG-File-uVy51WIiSA6CiTEscPJNbN9ilYFITu.png',
-    pickup: 'Sports Complex',
-    destination: 'Metro Station',
-    distance: '2.8 km',
-    passengers: 3
-  }
-]
+import { useAuth } from '@/lib/context/AuthContext'
+import { useToast } from '@/hooks/use-toast'
+import { rideService } from '@/lib/services/ride.service'
+import { notificationService } from '@/lib/services/notification.service'
 
 export default function DriverRequestsPage() {
   const router = useRouter()
-  const [requests, setRequests] = useState(mockRequests)
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
-  const [availableSeats, setAvailableSeats] = useState(4)
+  const { user, loading } = useAuth()
+  const { toast } = useToast()
+  const [requests, setRequests] = useState<any[]>([])
+  const [loadingRequests, setLoadingRequests] = useState(true)
+  const [availableSeats, setAvailableSeats] = useState(0)
+  const [processingId, setProcessingId] = useState<string | null>(null)
 
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type })
-    setTimeout(() => setToast(null), 3000)
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/sign-in')
+    }
+  }, [user, loading, router])
+
+  useEffect(() => {
+    if (user) {
+      fetchBookingRequests()
+    }
+  }, [user])
+
+  const fetchBookingRequests = async () => {
+    if (!user) return
+
+    setLoadingRequests(true)
+    try {
+      const result = await rideService.getDriverBookingRequests(user.uid)
+      if (result.success && result.requests) {
+        setRequests(result.requests)
+
+        // Get available seats from the active ride
+        const ridesResult = await rideService.getDriverRides(user.uid)
+        if (ridesResult.success && ridesResult.rides) {
+          const activeRide = ridesResult.rides.find(r => r.status === 'active')
+          if (activeRide) {
+            setAvailableSeats(activeRide.availableSeats)
+          }
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load booking requests",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load booking requests",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingRequests(false)
+    }
   }
 
-  const handleAccept = (id: number, name: string, passengers: number) => {
+  const handleAccept = async (requestId: string, rideId: string, name: string, passengers: number) => {
     if (passengers > availableSeats) {
-      showToast(`Not enough seats available. Only ${availableSeats} seats left.`, 'error')
+      toast({
+        title: "Not Enough Seats",
+        description: `Only ${availableSeats} seats available`,
+        variant: "destructive"
+      })
       return
     }
-    
-    setRequests(requests.filter(r => r.id !== id))
-    setAvailableSeats(prev => prev - passengers)
-    showToast(`Accepted ${name} (${passengers} seat${passengers > 1 ? 's' : ''})`, 'success')
+
+    setProcessingId(requestId)
+    try {
+      const result = await rideService.acceptBookingRequest(requestId, rideId)
+      if (result.success) {
+        // Find the request to get riderId
+        const request = requests.find(r => r.id === requestId)
+        if (request) {
+          // Send notification to rider
+          await notificationService.notifyRideAccepted(
+            request.riderId,
+            user?.displayName || 'Driver'
+          )
+        }
+
+        toast({
+          title: "Request Accepted",
+          description: `Accepted ${name} (${passengers} seat${passengers > 1 ? 's' : ''})`
+        })
+        fetchBookingRequests()
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to accept request",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to accept request",
+        variant: "destructive"
+      })
+    } finally {
+      setProcessingId(null)
+    }
   }
 
-  const handleDecline = (id: number, name: string) => {
-    setRequests(requests.filter(r => r.id !== id))
-    showToast(`Declined ride request from ${name}`, 'error')
+  const handleDecline = async (requestId: string, name: string) => {
+    setProcessingId(requestId)
+    try {
+      const result = await rideService.declineBookingRequest(requestId)
+      if (result.success) {
+        // Find the request to get riderId
+        const request = requests.find(r => r.id === requestId)
+        if (request) {
+          // Send notification to rider
+          await notificationService.notifyRideDeclined(
+            request.riderId,
+            user?.displayName || 'Driver'
+          )
+        }
+
+        toast({
+          title: "Request Declined",
+          description: `Declined ride request from ${name}`
+        })
+        fetchBookingRequests()
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to decline request",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to decline request",
+        variant: "destructive"
+      })
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  if (loading || loadingRequests) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#3A85BD] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-sans">Loading requests...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -175,19 +271,21 @@ export default function DriverRequestsPage() {
               <div className="flex gap-3">
                 <Button
                   onClick={() => handleDecline(request.id, request.name)}
+                  disabled={processingId === request.id}
                   variant="outline"
-                  className="flex-1 h-10 border-2 border-gray-300 text-gray-600 rounded-full font-sans font-bold hover:bg-gray-100"
+                  className="flex-1 h-10 border-2 border-gray-300 text-gray-600 rounded-full font-sans font-bold hover:bg-gray-100 disabled:opacity-50"
                 >
                   <X className="w-4 h-4 mr-2" />
-                  Decline
+                  {processingId === request.id ? 'Processing...' : 'Decline'}
                 </Button>
                 <Button
-                  onClick={() => handleAccept(request.id, request.name, request.passengers)}
-                  className="flex-1 h-10 rounded-full font-sans font-bold text-white"
+                  onClick={() => handleAccept(request.id, request.rideId, request.name, request.passengers)}
+                  disabled={processingId === request.id}
+                  className="flex-1 h-10 rounded-full font-sans font-bold text-white disabled:opacity-50"
                   style={{ background: 'linear-gradient(135deg, #3A85BD 0%, #9FB798 100%)' }}
                 >
                   <Check className="w-4 h-4 mr-2" />
-                  Accept
+                  {processingId === request.id ? 'Processing...' : 'Accept'}
                 </Button>
               </div>
             </div>
@@ -209,22 +307,6 @@ export default function DriverRequestsPage() {
           </div>
         )}
       </div>
-
-      {/* Toast Notification */}
-      {toast && (
-        <div className="fixed top-4 left-4 right-4 z-50 animate-in slide-in-from-top">
-          <div className={`rounded-2xl p-4 shadow-lg flex items-center gap-3 ${
-            toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-          }`}>
-            {toast.type === 'success' ? (
-              <Check className="w-6 h-6 text-white" />
-            ) : (
-              <AlertCircle className="w-6 h-6 text-white" />
-            )}
-            <span className="font-sans font-bold text-white">{toast.message}</span>
-          </div>
-        </div>
-      )}
 
       <BottomNav />
     </div>

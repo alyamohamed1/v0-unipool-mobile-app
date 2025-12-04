@@ -6,9 +6,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useRouter } from 'next/navigation'
+import { registerUser } from '@/lib/firebase/auth'
+import { setDocument } from '@/lib/firebase/firestore'
+import { useToast } from '@/hooks/use-toast'
 
 export default function SignUpPage() {
   const router = useRouter()
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -21,10 +26,52 @@ export default function SignUpPage() {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Navigate to role selection after sign up
-    router.push('/role-selection')
+    setLoading(true)
+
+    try {
+      // Register user with Firebase Auth
+      const { user, error } = await registerUser(formData.email, formData.password, formData.name)
+
+      if (error) {
+        toast({
+          title: "Sign Up Failed",
+          description: error,
+          variant: "destructive"
+        })
+        setLoading(false)
+        return
+      }
+
+      if (user) {
+        // Store additional user data in Firestore
+        await setDocument('users', user.uid, {
+          name: formData.name,
+          email: formData.email,
+          universityId: formData.universityId,
+          phone: formData.phone,
+          createdAt: new Date().toISOString(),
+          role: null // Will be set in role-selection
+        })
+
+        toast({
+          title: "Success!",
+          description: "Account created successfully"
+        })
+
+        // Navigate to role selection
+        router.push('/role-selection')
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -124,9 +171,10 @@ export default function SignUpPage() {
 
             <Button
               type="submit"
-              className="w-full h-14 bg-[#7F7CAF] hover:bg-[#7F7CAF]/90 text-white font-sans font-bold text-lg rounded-full mt-6"
+              disabled={loading}
+              className="w-full h-14 bg-[#7F7CAF] hover:bg-[#7F7CAF]/90 text-white font-sans font-bold text-lg rounded-full mt-6 disabled:opacity-50"
             >
-              SIGN UP
+              {loading ? 'CREATING ACCOUNT...' : 'SIGN UP'}
             </Button>
 
             <div className="text-center pt-4">

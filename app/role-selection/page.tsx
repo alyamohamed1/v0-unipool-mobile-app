@@ -2,20 +2,67 @@
 
 import { useRouter } from "next/navigation"
 import { Car, Users } from "lucide-react"
+import { useAuth } from "@/lib/context/AuthContext"
+import { updateDocument } from "@/lib/firebase/firestore"
+import { useState, useEffect } from "react"
+import { useToast } from "@/hooks/use-toast"
 
 export default function RoleSelectionPage() {
   const router = useRouter()
+  const { user, userData, loading } = useAuth()
+  const { toast } = useToast()
+  const [selecting, setSelecting] = useState(false)
 
-  const handleRoleSelection = (role: "rider" | "driver") => {
-    localStorage.setItem("userRole", role)
-    router.push(role === "rider" ? "/rider" : "/driver")
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/sign-in")
+    }
+  }, [user, loading, router])
+
+  const handleRoleSelection = async (role: "rider" | "driver") => {
+    if (!user) return
+
+    setSelecting(true)
+
+    try {
+      await updateDocument("users", user.uid, { role })
+
+      toast({
+        title: "Role Selected",
+        description: `You are now a ${role}`,
+      })
+
+      router.push(role === "rider" ? "/rider" : "/driver")
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update role. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSelecting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#3A85BD] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-sans">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen flex flex-col px-6 pt-12 pb-8 bg-white">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
-        <button className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+        <button
+          onClick={() => router.back()}
+          className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center"
+        >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 16L6 10L12 4" stroke="#7F7CAF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -35,14 +82,15 @@ export default function RoleSelectionPage() {
       </div>
 
       {/* Title */}
-      <h1 className="text-[#3A85BD] font-serif text-3xl font-bold text-center mb-12">Chose your Path</h1>
+      <h1 className="text-[#3A85BD] font-serif text-3xl font-bold text-center mb-12">Choose your Path</h1>
 
       {/* Role Cards */}
       <div className="space-y-6 flex-1">
         {/* Rider Card */}
         <button
           onClick={() => handleRoleSelection("rider")}
-          className="w-full rounded-3xl p-6 text-left transition-all hover:scale-[1.02] shadow-lg"
+          disabled={selecting}
+          className="w-full rounded-3xl p-6 text-left transition-all hover:scale-[1.02] shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             background: "linear-gradient(135deg, #7F7CAF 0%, #9FB4C7 100%)",
           }}
@@ -71,7 +119,8 @@ export default function RoleSelectionPage() {
         {/* Driver Card */}
         <button
           onClick={() => handleRoleSelection("driver")}
-          className="w-full rounded-3xl p-6 text-left transition-all hover:scale-[1.02] shadow-lg"
+          disabled={selecting}
+          className="w-full rounded-3xl p-6 text-left transition-all hover:scale-[1.02] shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             background: "linear-gradient(135deg, #3A85BD 0%, #9FB798 100%)",
           }}
@@ -95,22 +144,6 @@ export default function RoleSelectionPage() {
               </svg>
             </div>
           </div>
-        </button>
-      </div>
-
-      {/* Next Button */}
-      <div className="pt-8 flex justify-end">
-        <button className="text-[#9FB4C7] font-sans text-sm font-bold flex items-center gap-2 hover:gap-3 transition-all">
-          Next
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M8 4L14 10L8 16"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
         </button>
       </div>
     </div>
